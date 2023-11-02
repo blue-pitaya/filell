@@ -33,7 +33,8 @@ executable filell
                       brick,
                       directory,
                       containers,
-                      filepath
+                      filepath,
+                      vty
     hs-source-dirs:   app
     default-language: Haskell2010
     ghc-options:      -Wall -Wcompat -O2 -Wunused-packages -threaded
