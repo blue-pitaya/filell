@@ -1,55 +1,64 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
+
 module Main (main) where
 
 import Brick
 import qualified Brick.AttrMap as A
 import Brick.Main as M
 import qualified Brick.Types as T
-import Brick.Widgets.List as L
+import qualified Brick.Widgets.List as L
 import Control.Monad (void)
-import Data.Sequence (Seq, fromList)
+import qualified Data.Vector as VE
 import qualified Graphics.Vty as V
+import Lens.Micro ((^.))
+-- import Lens.Micro.Mtl
+import Lens.Micro.TH
 import System.Directory
 import System.Environment
 import System.FilePath
 
-data DirItem = Item {dirItemIsDir :: Bool, dirItemName :: String, dirItemFullPath :: String}
+data DirItem = DirItem {dirItemIsDir :: Bool, dirItemName :: String, dirItemFullPath :: String}
 
 instance Show DirItem where
-  show item = (if dirItemIsDir item then "d " else "- ") ++ dirItemName item
+  show item = (if dirItemIsDir item then "d " else "- ") <> dirItemName item
 
-data AppState = AppState {currentItems :: Seq DirItem, selectedIdx :: Int}
+data AppState = AppState {_currentList :: L.List () DirItem}
+
+makeLenses ''AppState
 
 rootDirFromArgs :: [String] -> String
 rootDirFromArgs [] = "/home/kodus/testi"
 rootDirFromArgs (arg : _) = arg
 
-itemsList :: Seq a -> GenericList String Seq a
-itemsList xs = list "Current dir items" xs 3
+itemsList :: VE.Vector a -> L.List () a
+itemsList xs = L.list () xs 3
 
 fromPath :: FilePath -> FilePath -> IO DirItem
 fromPath root filePath = do
   let fullPath' = root </> filePath
   isDir' <- doesDirectoryExist fullPath'
-  return Item {dirItemIsDir = isDir', dirItemName = filePath, dirItemFullPath = fullPath'}
+  return DirItem {dirItemIsDir = isDir', dirItemName = filePath, dirItemFullPath = fullPath'}
 
-getItems :: FilePath -> IO (Seq DirItem)
+getItems :: FilePath -> IO (VE.Vector DirItem)
 getItems path = do
   contentPahts <- listDirectory path
   items <- mapM (fromPath path) contentPahts
-  return $ fromList items
+  return $ VE.fromList items
 
 createAppState :: FilePath -> IO AppState
 createAppState rootDir = do
   items <- getItems rootDir
-  return AppState {currentItems = items, selectedIdx = 0}
+  return AppState {_currentList = itemsList items}
 
-renderDirItem :: Bool -> DirItem -> Widget String
-renderDirItem isSelected item = str $ selectedArrow ++ show item
+renderDirItem :: Bool -> DirItem -> Widget ()
+renderDirItem isSelected item = str $ selectedArrow <> show item
   where
     selectedArrow = if isSelected then "-> " else ""
 
-renderApp :: AppState -> Widget String
-renderApp appState = renderList renderDirItem True (itemsList $ currentItems appState)
+renderApp :: AppState -> Widget ()
+renderApp appState = L.renderList renderDirItem True (appState ^. currentList)
 
 customAttr :: A.AttrName
 customAttr = L.listSelectedAttr <> A.attrName "custom"
@@ -63,10 +72,13 @@ theMap =
       (customAttr, fg V.red)
     ]
 
-appEvent :: T.BrickEvent String e -> T.EventM String AppState ()
-appEvent _ = M.halt
+appEvent :: T.BrickEvent () e -> T.EventM () AppState ()
+appEvent (T.VtyEvent e) = case e of
+  V.EvKey exitKey [] | exitKey `elem` [V.KEsc, V.KChar 'q'] -> M.halt
+  ev -> T.zoom currentList $ L.handleListEvent ev
+appEvent _ = return ()
 
-theApp :: M.App AppState e String
+theApp :: M.App AppState e ()
 theApp =
   M.App
     { M.appDraw = \state -> [renderApp state],

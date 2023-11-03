@@ -34,7 +34,11 @@ executable filell
                       directory,
                       containers,
                       filepath,
-                      vty
+                      vty,
+                      vector,
+                      microlens >= 0.3.0.0,
+                      microlens-th,
+                      microlens-mtl,
     hs-source-dirs:   app
     default-language: Haskell2010
     ghc-options:      -Wall -Wcompat -O2 -Wunused-packages -threaded
