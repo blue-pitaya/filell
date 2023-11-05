@@ -29,10 +29,13 @@ data DirItem = DirItem {dirItemIsDir :: Bool, dirItemName :: String, dirItemFull
 instance Show DirItem where
   show item = (if dirItemIsDir item then "d " else "- ") <> dirItemName item
 
+type FullPath = FilePath
+
 data AppState = AppState
   { _currentList :: L.List WidgetId DirItem,
     _parentDirList :: L.List WidgetId DirItem,
-    _childDirList :: L.List WidgetId DirItem
+    _childDirList :: L.List WidgetId DirItem,
+    stateCurrentDir :: FullPath
   }
 
 makeLenses ''AppState
@@ -64,6 +67,20 @@ createAppState rootDir = do
   let currentList' = makeList CurrentDirListKind currentDirItems
   return
     AppState
+      { _currentList = currentList',
+        _parentDirList = makeList ParentDirListKind parentDirItems,
+        _childDirList = makeList ChildDirListId VE.empty,
+        stateCurrentDir = rootDir
+      }
+
+renderLists :: AppState -> IO AppState
+renderLists s = do
+  let d = stateCurrentDir s
+  currentDirItems <- getItems d
+  parentDirItems <- getItems (takeDirectory d)
+  let currentList' = makeList CurrentDirListKind currentDirItems
+  return
+    s
       { _currentList = currentList',
         _parentDirList = makeList ParentDirListKind parentDirItems,
         _childDirList = makeList ChildDirListId VE.empty
@@ -105,9 +122,18 @@ updateListsAfterSelectedCHanged s = do
       return (s {_childDirList = nextList})
     _ -> return s
 
+handleGoParent :: AppState -> IO AppState
+handleGoParent s = do
+  let parentDir = takeDirectory (stateCurrentDir s)
+  let nextState = s {stateCurrentDir = parentDir}
+  renderLists nextState
+
 appEvent :: T.BrickEvent WidgetId e -> T.EventM WidgetId AppState ()
 appEvent (T.VtyEvent e) = case e of
   V.EvKey exitKey [] | exitKey `elem` [V.KEsc, V.KChar 'q'] -> M.halt
+  V.EvKey (V.KChar 'h') [] -> do
+    s <- get
+    liftIO (handleGoParent s) >>= put
   ev -> do
     _ <- T.zoom currentList (L.handleListEventVi L.handleListEvent ev)
     s <- get
