@@ -127,10 +127,11 @@ handleVertChuj :: AppState -> Kleisli Maybe V.Event AppState
 handleVertChuj s =
   Kleisli
     ( \case
-        V.EvKey (V.KChar 'j') [] -> Just $ s {currentList = L.listMoveBy 1 (currentList s)}
-        V.EvKey (V.KChar 'k') [] -> Just $ s {currentList = L.listMoveBy (-1) (currentList s)}
-        -- TODO: "gg"
-        V.EvKey (V.KChar 'G') [] -> Just s
+        V.EvKey (V.KChar 'j') [] -> Just $ s {currentList = L.listMoveDown (currentList s)}
+        V.EvKey (V.KChar 'k') [] -> Just $ s {currentList = L.listMoveUp (currentList s)}
+        -- TODO: Change to keybinding "gg"
+        V.EvKey (V.KChar 'g') [] -> Just $ s {currentList = L.listMoveToBeginning (currentList s)}
+        V.EvKey (V.KChar 'G') [] -> Just $ s {currentList = L.listMoveToEnd (currentList s)}
         _ -> Nothing
     )
 
