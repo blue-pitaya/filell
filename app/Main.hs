@@ -1,7 +1,6 @@
-{-# HLINT ignore "Use newtype instead of data" #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module Main (main) where
 
@@ -10,14 +9,12 @@ import qualified Brick.AttrMap as A
 import Brick.Main as M
 import qualified Brick.Types as T
 import qualified Brick.Widgets.List as L
+import Control.Arrow (Kleisli (Kleisli, runKleisli))
 import Control.Monad (void)
--- import Lens.Micro.Mtl
-
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Data.Maybe (fromMaybe)
 import qualified Data.Vector as VE
 import qualified Graphics.Vty as V
-import Lens.Micro ((^.))
-import Lens.Micro.TH
 import System.Directory
 import System.Environment
 import System.FilePath
@@ -32,13 +29,11 @@ instance Show DirItem where
 type FullPath = FilePath
 
 data AppState = AppState
-  { _currentList :: L.List WidgetId DirItem,
-    _parentDirList :: L.List WidgetId DirItem,
-    _childDirList :: L.List WidgetId DirItem,
+  { currentList :: L.List WidgetId DirItem,
+    parentDirList :: L.List WidgetId DirItem,
+    childDirList :: L.List WidgetId DirItem,
     stateCurrentDir :: FullPath
   }
-
-makeLenses ''AppState
 
 rootDirFromArgs :: [String] -> String
 rootDirFromArgs [] = "/home/kodus/testi/bulma"
@@ -67,9 +62,9 @@ createAppState rootDir = do
   let currentList' = makeList CurrentDirListKind currentDirItems
   return
     AppState
-      { _currentList = currentList',
-        _parentDirList = makeList ParentDirListKind parentDirItems,
-        _childDirList = makeList ChildDirListId VE.empty,
+      { currentList = currentList',
+        parentDirList = makeList ParentDirListKind parentDirItems,
+        childDirList = makeList ChildDirListId VE.empty,
         stateCurrentDir = rootDir
       }
 
@@ -81,9 +76,9 @@ renderLists s = do
   let currentList' = makeList CurrentDirListKind currentDirItems
   return
     s
-      { _currentList = currentList',
-        _parentDirList = makeList ParentDirListKind parentDirItems,
-        _childDirList = makeList ChildDirListId VE.empty
+      { currentList = currentList',
+        parentDirList = makeList ParentDirListKind parentDirItems,
+        childDirList = makeList ChildDirListId VE.empty
       }
 
 renderDirItem :: Bool -> DirItem -> Widget a
@@ -91,9 +86,9 @@ renderDirItem _ item = str $ show item
 
 renderApp :: AppState -> [Widget WidgetId]
 renderApp appState =
-  [ L.renderList renderDirItem False (appState ^. parentDirList)
-      <+> L.renderList renderDirItem True (appState ^. currentList)
-      <+> L.renderList renderDirItem False (appState ^. childDirList)
+  [ L.renderList renderDirItem False (parentDirList appState)
+      <+> L.renderList renderDirItem True (currentList appState)
+      <+> L.renderList renderDirItem False (childDirList appState)
   ]
 
 theMap :: A.AttrMap
@@ -112,14 +107,14 @@ updateChildrenOnSelectedItem dirItem =
       return (makeList ChildDirListId items)
     else return (makeList ChildDirListId VE.empty)
 
-updateListsAfterSelectedCHanged :: AppState -> IO AppState
-updateListsAfterSelectedCHanged s = do
-  let currList = s ^. currentList
+updateListsAfterSelectedChanged :: AppState -> IO AppState
+updateListsAfterSelectedChanged s = do
+  let currList = currentList s
   let selected = fmap snd (L.listSelectedElement currList)
   case selected of
     Just item -> do
       nextList <- updateChildrenOnSelectedItem item
-      return (s {_childDirList = nextList})
+      return (s {childDirList = nextList})
     _ -> return s
 
 handleGoParent :: AppState -> IO AppState
@@ -128,6 +123,26 @@ handleGoParent s = do
   let nextState = s {stateCurrentDir = parentDir}
   renderLists nextState
 
+handleVertChuj :: AppState -> Kleisli Maybe V.Event AppState
+handleVertChuj s =
+  Kleisli
+    ( \case
+        V.EvKey (V.KChar 'j') [] -> Just $ s {currentList = L.listMoveBy 1 (currentList s)}
+        V.EvKey (V.KChar 'k') [] -> Just $ s {currentList = L.listMoveBy (-1) (currentList s)}
+        -- TODO: "gg"
+        V.EvKey (V.KChar 'G') [] -> Just s
+        _ -> Nothing
+    )
+
+--    Up (k)
+--    Down (j)
+--    Page Up (Ctrl-b)
+--    Page Down (Ctrl-f)
+--    Half Page Up (Ctrl-u)
+--    Half Page Down (Ctrl-d)
+--    Go to first element (g)
+--    Go to last element (G)
+
 appEvent :: T.BrickEvent WidgetId e -> T.EventM WidgetId AppState ()
 appEvent (T.VtyEvent e) = case e of
   V.EvKey exitKey [] | exitKey `elem` [V.KEsc, V.KChar 'q'] -> M.halt
@@ -135,9 +150,10 @@ appEvent (T.VtyEvent e) = case e of
     s <- get
     liftIO (handleGoParent s) >>= put
   ev -> do
-    _ <- T.zoom currentList (L.handleListEventVi L.handleListEvent ev)
     s <- get
-    liftIO (updateListsAfterSelectedCHanged s) >>= put
+    let nextState = fromMaybe s (runKleisli (handleVertChuj s) ev)
+    let nextState' = updateListsAfterSelectedChanged nextState
+    liftIO nextState' >>= put
 appEvent _ = return ()
 
 theApp :: M.App AppState e WidgetId
