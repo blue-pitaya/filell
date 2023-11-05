@@ -39,6 +39,7 @@ executable filell
                       microlens >= 0.3.0.0,
                       microlens-th,
                       microlens-mtl,
+                      process,
     hs-source-dirs:   app
     default-language: Haskell2010
     ghc-options:      -Wall -Wcompat -O2 -Wunused-packages -threaded

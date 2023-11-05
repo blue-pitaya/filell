@@ -18,6 +18,7 @@ import qualified Graphics.Vty as V
 import System.Directory
 import System.Environment
 import System.FilePath
+import System.Process
 
 data WidgetId = ParentDirListKind | CurrentDirListKind | ChildDirListId deriving (Eq, Ord, Show)
 
@@ -44,7 +45,7 @@ rootDirFromArgs [] = "/home/kodus/testi/bulma"
 rootDirFromArgs (arg : _) = arg
 
 makeList :: WidgetId -> VE.Vector a -> L.List WidgetId a
-makeList kind xs = L.list kind xs 3
+makeList kind xs = L.list kind xs 1
 
 fromPath :: FilePath -> FilePath -> IO DirItem
 fromPath dirRoot filePath = do
@@ -125,6 +126,13 @@ handleGoInsideDir s = case L.listSelectedElement (currentList $ viewState s) of
     return s {stateCurrentDir = nextDir, viewState = nextLists}
   _ -> return s
 
+tryOpenFile :: AppState -> IO ()
+tryOpenFile s = case L.listSelectedElement (currentList $ viewState s) of
+  Just (_, e) | not (dirItemIsDir e) -> do
+    callCommand ("nvim " ++ dirItemFullPath e)
+    return ()
+  _ -> return ()
+
 -- TODO: can be single list
 handleVerticalMovements :: AppViewState -> Kleisli Maybe V.Event AppViewState
 handleVerticalMovements s =
@@ -146,17 +154,12 @@ updateAppState s ev = do
   return s {viewState = nextViewState'}
 
 appEvent :: T.BrickEvent WidgetId e -> T.EventM WidgetId AppState ()
-appEvent (T.VtyEvent e) = case e of
+appEvent (T.VtyEvent event) = case event of
   V.EvKey exitKey [] | exitKey `elem` [V.KEsc, V.KChar 'q'] -> M.halt
-  V.EvKey (V.KChar 'h') [] -> do
-    s <- get
-    liftIO (handleGoParent s) >>= put
-  V.EvKey (V.KChar 'l') [] -> do
-    s <- get
-    liftIO (handleGoInsideDir s) >>= put
-  ev -> do
-    s <- get
-    liftIO (updateAppState s ev) >>= put
+  V.EvKey (V.KChar 'h') [] -> get >>= liftIO . handleGoParent >>= put
+  V.EvKey (V.KChar 'l') [] -> get >>= liftIO . handleGoInsideDir >>= put
+  V.EvKey V.KEnter [] -> get >>= suspendAndResume' . tryOpenFile
+  e -> get >>= \s -> liftIO (updateAppState s e) >>= put
 appEvent _ = return ()
 
 theApp :: M.App AppState e WidgetId
