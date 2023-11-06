@@ -1,6 +1,9 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+-- TODO: remove this later
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Main (main) where
 
@@ -10,22 +13,36 @@ import Brick.Main as M
 import qualified Brick.Types as T
 import qualified Brick.Widgets.List as L
 import Control.Arrow (Kleisli (Kleisli, runKleisli))
+import Control.Exception
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Functor
 import Data.Maybe (fromMaybe)
+import Data.Text (pack, strip, unpack)
 import qualified Data.Vector as VE
 import qualified Graphics.Vty as V
 import System.Directory
 import System.Environment
+import System.Exit
 import System.FilePath
 import System.Process
 
+type MimeType = String
+
 data WidgetId = ParentDirListKind | CurrentDirListKind | ChildDirListId deriving (Eq, Ord, Show)
 
-data DirItem = DirItem {dirItemIsDir :: Bool, dirItemName :: String, dirItemFullPath :: String}
+data DirItem = DirItem
+  { dirItemIsDir :: Bool,
+    dirItemName :: String,
+    dirItemFullPath :: String,
+    dirItemMimeType :: MimeType
+  }
 
 instance Show DirItem where
-  show item = (if dirItemIsDir item then "d " else "- ") <> dirItemName item
+  show item = unwords (filter (not . null) [typePart, dirItemName item, mimeTypePart])
+    where
+      isDir = dirItemIsDir item
+      typePart = if isDir then "d" else "-"
+      mimeTypePart = if not isDir then "[" <> dirItemMimeType item <> "]" else ""
 
 type FullPath = FilePath
 
@@ -47,11 +64,26 @@ rootDirFromArgs (arg : _) = arg
 makeList :: WidgetId -> VE.Vector a -> L.List WidgetId a
 makeList kind xs = L.list kind xs 1
 
+-- getMimeType :: FullPath -> IO String
+-- getMimeType fullPath = do
+--  (exitCode, out, _) <- readProcessWithExitCode "file" ["-b", "--mime-type", fullPath] ""
+--  case exitCode of
+--    ExitSuccess -> return $ unpack $ strip $ pack out
+--    _ -> return "?"
+
 fromPath :: FilePath -> FilePath -> IO DirItem
 fromPath dirRoot filePath = do
-  let fullPath' = dirRoot </> filePath
-  isDir' <- doesDirectoryExist fullPath'
-  return DirItem {dirItemIsDir = isDir', dirItemName = filePath, dirItemFullPath = fullPath'}
+  isDir <- doesDirectoryExist fullPath
+  -- mimeType <- getMimeType fullPath
+  return
+    DirItem
+      { dirItemIsDir = isDir,
+        dirItemName = filePath,
+        dirItemFullPath = fullPath,
+        dirItemMimeType = ""
+      }
+  where
+    fullPath = dirRoot </> filePath
 
 getItems :: FilePath -> IO (VE.Vector DirItem)
 getItems dirPath = fmap VE.fromList (listDirectory dirPath >>= mapM (fromPath dirPath))
@@ -62,6 +94,7 @@ createAppState rootDir = do
   lists <- renderLists rootDir
   return AppState {stateCurrentDir = rootDir, viewState = lists}
 
+-- TODO: this is not rendering lists, its just creating them
 renderLists :: FullPath -> IO AppViewState
 renderLists d = do
   currentDirItems <- getItems d
@@ -75,23 +108,14 @@ renderLists d = do
           }
   return viewState'
 
-renderDirItem :: Bool -> DirItem -> Widget a
-renderDirItem _ item = str $ show item
-
 renderApp :: AppState -> [Widget WidgetId]
 renderApp appState =
-  [ L.renderList renderDirItem False ((parentDirList . viewState) appState)
-      <+> L.renderList renderDirItem True ((currentList . viewState) appState)
-      <+> L.renderList renderDirItem False ((childDirList . viewState) appState)
+  [ L.renderList renderItem False ((parentDirList . viewState) appState)
+      <+> L.renderList renderItem True ((currentList . viewState) appState)
+      <+> L.renderList renderItem False ((childDirList . viewState) appState)
   ]
-
-theMap :: A.AttrMap
-theMap =
-  A.attrMap
-    V.defAttr
-    [ (L.listAttr, V.white `on` V.black),
-      (L.listSelectedAttr, V.white `on` V.blue)
-    ]
+  where
+    renderItem _ item = str (show item)
 
 updateChildrenOnSelectedItem :: DirItem -> IO (L.List WidgetId DirItem)
 updateChildrenOnSelectedItem dirItem =
@@ -129,8 +153,7 @@ handleGoInsideDir s = case L.listSelectedElement (currentList $ viewState s) of
 tryOpenFile :: AppState -> IO ()
 tryOpenFile s = case L.listSelectedElement (currentList $ viewState s) of
   Just (_, e) | not (dirItemIsDir e) -> do
-    callCommand ("nvim " ++ dirItemFullPath e)
-    return ()
+    catch (callProcess "xdg-open" [dirItemFullPath e]) (\(_ :: SomeException) -> return ())
   _ -> return ()
 
 -- TODO: can be single list
@@ -162,14 +185,21 @@ appEvent (T.VtyEvent event) = case event of
   e -> get >>= \s -> liftIO (updateAppState s e) >>= put
 appEvent _ = return ()
 
-theApp :: M.App AppState e WidgetId
+theApp :: M.App AppState () WidgetId
 theApp =
   M.App
     { M.appDraw = renderApp,
       M.appChooseCursor = M.showFirstCursor,
       M.appHandleEvent = appEvent,
       M.appStartEvent = return (),
-      M.appAttrMap = const theMap
+      M.appAttrMap =
+        const
+          ( A.attrMap
+              V.defAttr
+              [ (L.listAttr, V.white `on` V.black),
+                (L.listSelectedAttr, V.white `on` V.blue)
+              ]
+          )
     }
 
 main :: IO ()
