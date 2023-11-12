@@ -13,6 +13,12 @@ getCurrentListItem list = getList list `atMay` focusedIdx list
 emptyInteractiveList :: InteracviteList
 emptyInteractiveList = InteracviteList {getList = [], focusedIdx = 0}
 
+moveBy :: Int -> InteracviteList -> InteracviteList
+moveBy n list = list {focusedIdx = focusedIdx'}
+  where
+    focusedIdx' = min (max (focusedIdx list + n) 0) (length (getList list) - 1)
+
+
 data AppState = AppState
   { currentAbsolutePath :: FilePath,
     getParentList :: InteracviteList,
