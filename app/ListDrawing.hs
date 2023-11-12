@@ -1,12 +1,10 @@
-module ListDrawing (imageForApp) where
-
--- explicit import for attributes
+module ListDrawing (imageForApp, getListHeight) where
 
 import AppState (AppState (currentAbsolutePath, getChildList, getCurrentList, getParentList))
 import Graphics.Vty (Attr, Image, defAttr, horizCat, resize, string, vertCat, vertJoin, withBackColor, withForeColor, withStyle)
 import qualified Graphics.Vty as Col
 import Graphics.Vty.Image (char)
-import InteractiveList (InteractiveList (..), ListItem (ListItem, getName, getType), ListItemType (..))
+import InteractiveList (InteractiveList (..), ListItem (ListItem, getName, getType), ListItemType (..), getVisibleItems)
 
 type Size = (Int, Int)
 
@@ -28,8 +26,11 @@ imageForInteractiveList :: Size -> InteractiveList -> Image
 imageForInteractiveList (width, height) interactiveList =
   resize width height listImage
   where
-    _focusedIdx = focusedIdx interactiveList
-    items = zipWith (\idx item -> (idx == _focusedIdx, item)) [0 ..] (getList interactiveList)
+    items =
+      zipWith
+        (\idx item -> (idx == focusedIdx interactiveList, item))
+        [(viewOffset interactiveList) ..]
+        (getVisibleItems height interactiveList)
     listImage = vertCat $ map (uncurry imageForListItem) items
 
 imageForCurrentPath :: FilePath -> Image
@@ -38,6 +39,9 @@ imageForCurrentPath = string (defAttr `withStyle` Col.bold `withForeColor` Col.b
 -- '│' maybe column sign?
 columnSeparator :: Int -> Image
 columnSeparator height = vertCat (replicate height (char (defAttr `withForeColor` Col.brightBlack) ' '))
+
+getListHeight :: Int -> Int
+getListHeight terminalSize = terminalSize - 1 -- 1 for status line on top
 
 imageForApp :: AppState -> Size -> Image
 imageForApp state (width, height) =
@@ -48,7 +52,7 @@ imageForApp state (width, height) =
     -- min Width should be 30
     listWidth = width `div` 3
     pathImage = imageForCurrentPath (currentAbsolutePath state)
-    toInteractiveList = imageForInteractiveList (listWidth, height)
+    toInteractiveList = imageForInteractiveList (listWidth, getListHeight height)
     listsImage =
       horizCat
         [ toInteractiveList (getParentList state),

@@ -2,7 +2,7 @@ module SysInteraction where
 
 import AppState (AbsolutePath, AppState (..))
 import Data.List (sort)
-import InteractiveList (InteractiveList (..), ListItem (..), ListItemType (Dir, File), emptyInteractiveList, getCurrentListItem)
+import InteractiveList (InteractiveList (..), ListItem (..), ListItemType (Dir, File), emptyInteractiveList, getFocusedListItem)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.FilePath (takeDirectory, (</>))
 
@@ -22,7 +22,7 @@ getListOfPath path = do
   mapM (itemFromPath path) contents
 
 createInteractiveList :: AbsolutePath -> IO InteractiveList
-createInteractiveList path = getListOfPath path >>= (\l -> pure InteractiveList {getList = sort l, focusedIdx = 0})
+createInteractiveList path = getListOfPath path >>= (\l -> pure (emptyInteractiveList {getList = sort l}))
 
 updateLists :: AppState -> IO AppState
 updateLists state = updateCurrentList state >>= updateParentList >>= updateChildList
@@ -42,7 +42,7 @@ updateChildList state = do
   list' <- getListForMaybe dirItem
   return (state {getChildList = list'})
   where
-    dirItem = case getCurrentListItem (getCurrentList state) of
+    dirItem = case getFocusedListItem (getCurrentList state) of
       Just x | getType x == Dir -> Just x
       _ -> Nothing
     getListForMaybe (Just listItem) = createInteractiveList (currentAbsolutePath state </> getName listItem)

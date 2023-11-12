@@ -1,4 +1,4 @@
-module InteractiveList (InteractiveList (..), ListItem (..), ListItemType (..), getCurrentListItem, emptyInteractiveList, moveBy) where
+module InteractiveList (InteractiveList (..), ListItem (..), ListItemType (..), getFocusedListItem, emptyInteractiveList, moveBy, getVisibleItems) where
 
 import Data.Ord (comparing)
 import Safe (atMay)
@@ -19,22 +19,28 @@ data ListItem = ListItem
 instance Ord ListItem where
   compare = comparing (\x -> (getType x, getName x))
 
-instance Show ListItem where
-  show item = unwords [typePart, getName item]
-    where
-      isDir = getType item == Dir
-      typePart = if isDir then "d" else "-"
-
 data InteractiveList = InteractiveList
-  {getList :: [ListItem], focusedIdx :: Int}
+  { getList :: [ListItem],
+    focusedIdx :: Int,
+    -- for scrolling
+    viewOffset :: Int
+  }
 
-getCurrentListItem :: InteractiveList -> Maybe ListItem
-getCurrentListItem list = getList list `atMay` focusedIdx list
+getFocusedListItem :: InteractiveList -> Maybe ListItem
+getFocusedListItem list = getList list `atMay` focusedIdx list
+
+getVisibleItems :: Int -> InteractiveList -> [ListItem]
+getVisibleItems viewHeight list = take viewHeight (drop (viewOffset list) (getList list))
 
 emptyInteractiveList :: InteractiveList
-emptyInteractiveList = InteractiveList {getList = [], focusedIdx = 0}
+emptyInteractiveList = InteractiveList {getList = [], focusedIdx = 0, viewOffset = 0}
 
-moveBy :: Int -> InteractiveList -> InteractiveList
-moveBy n list = list {focusedIdx = focusedIdx'}
+moveBy :: Int -> Int -> InteractiveList -> InteractiveList
+moveBy n listHeight list = list {focusedIdx = focusedIdx', viewOffset = viewOffset'}
   where
     focusedIdx' = min (max (focusedIdx list + n) 0) (length (getList list) - 1)
+    viewOffsetChange
+      | (focusedIdx' - viewOffset list) >= listHeight = 1
+      | focusedIdx' < viewOffset list = -1
+      | otherwise = 0
+    viewOffset' = viewOffset list + viewOffsetChange

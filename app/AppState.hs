@@ -1,6 +1,6 @@
 module AppState where
 
-import InteractiveList (InteractiveList (..), ListItem (..), ListItemType (..), emptyInteractiveList, getCurrentListItem)
+import InteractiveList (InteractiveList (..), ListItem (..), ListItemType (..), emptyInteractiveList, getFocusedListItem)
 import System.FilePath ((</>))
 
 type AbsolutePath = FilePath
@@ -23,6 +23,6 @@ emptyAppState path =
 
 getChildPath :: AppState -> Maybe AbsolutePath
 getChildPath state = do
-  item <- getCurrentListItem (getCurrentList state)
+  item <- getFocusedListItem (getCurrentList state)
   dirItem <- if getType item == Dir then Just item else Nothing
   return (currentAbsolutePath state </> getName dirItem)
