@@ -1,10 +1,11 @@
-module ListDrawing (imageForApp, getListHeight) where
+module ListDrawing (imageForApp) where
 
 import AppState (AppState (currentAbsolutePath, getChildList, getCurrentList, getParentList))
 import Graphics.Vty (Attr, Image, defAttr, horizCat, resize, string, vertCat, vertJoin, withBackColor, withForeColor, withStyle)
 import qualified Graphics.Vty as Col
 import Graphics.Vty.Image (char)
 import InteractiveList (InteractiveList (..), ListItem (ListItem, getName, getType), ListItemType (..), getVisibleItems)
+import Layout (Layout (..), getListHeight)
 
 type Size = (Int, Int)
 
@@ -40,19 +41,17 @@ imageForCurrentPath = string (defAttr `withStyle` Col.bold `withForeColor` Col.b
 columnSeparator :: Int -> Image
 columnSeparator height = vertCat (replicate height (char (defAttr `withForeColor` Col.brightBlack) ' '))
 
-getListHeight :: Int -> Int
-getListHeight terminalSize = terminalSize - 1 -- 1 for status line on top
-
-imageForApp :: AppState -> Size -> Image
-imageForApp state (width, height) =
+imageForApp :: Layout -> AppState -> Image
+imageForApp layout state =
   pathImage `vertJoin` listsImage
   where
     -- TODO: when width is 92, then listWidth is 30, and there are 2 unused columsn
     -- write test that proves that all area is covered by lists
     -- min Width should be 30
-    listWidth = width `div` 3
+    listWidth = getTerminalWidth layout `div` 3
+    height = getTerminalHeight layout
     pathImage = imageForCurrentPath (currentAbsolutePath state)
-    toInteractiveList = imageForInteractiveList (listWidth, getListHeight height)
+    toInteractiveList = imageForInteractiveList (listWidth, getListHeight layout)
     listsImage =
       horizCat
         [ toInteractiveList (getParentList state),

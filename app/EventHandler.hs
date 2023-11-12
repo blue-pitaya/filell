@@ -1,31 +1,33 @@
 module EventHandler (eventLoop) where
 
 import AppState (AppState (..), getChildPath)
-import Graphics.Vty (DisplayRegion, Event (EvKey), Key (KChar), Output (displayBounds), Vty (nextEvent, outputIface), picForImage, update)
+import Graphics.Vty (Event (EvKey), Key (KChar), Vty (nextEvent), picForImage, update)
 import InteractiveList (moveBy)
-import ListDrawing (getListHeight, imageForApp)
+import Layout (Layout, createLayout, getListHeight)
+import ListDrawing (imageForApp)
 import SysInteraction (updateChildList, updateParentList)
 import System.FilePath (takeDirectory)
 
-handleEvent :: DisplayRegion -> AppState -> Event -> IO (Maybe AppState)
+handleEvent :: Layout -> AppState -> Event -> IO (Maybe AppState)
 handleEvent _ _ (EvKey (KChar 'q') []) = return Nothing
-handleEvent (_, terminalHeight) state (EvKey (KChar 'j') []) = do
+handleEvent layout state (EvKey (KChar 'j') []) = do
   state' <- updateChildList state {getCurrentList = list'}
   return $ Just state'
   where
-    list' = moveBy 1 (getListHeight terminalHeight) (getCurrentList state)
-handleEvent (_, terminalHeight) state (EvKey (KChar 'k') []) = do
+    list' = moveBy 1 (getListHeight layout) (getCurrentList state)
+handleEvent layout state (EvKey (KChar 'k') []) = do
   state' <- updateChildList state {getCurrentList = list'}
   return $ Just state'
   where
-    list' = moveBy (-1) (getListHeight terminalHeight) (getCurrentList state)
-handleEvent _ state (EvKey (KChar 'h') []) = fmap Just nextState
+    list' = moveBy (-1) (getListHeight layout) (getCurrentList state)
+handleEvent layout state (EvKey (KChar 'h') []) = fmap Just nextState
   where
     parentPath = takeDirectory (currentAbsolutePath state)
     nextState =
       if parentPath /= currentAbsolutePath state
         then
           updateParentList
+            layout
             state
               { currentAbsolutePath = parentPath,
                 getCurrentList = getParentList state
@@ -47,17 +49,17 @@ handleEvent _ state (EvKey (KChar 'l') []) = fmap Just nextState
         Nothing -> pure state
 handleEvent _ state _ = return (Just state)
 
-render :: Vty -> DisplayRegion -> AppState -> IO ()
-render vty terminalSize state = do
-  let mainImage = imageForApp state terminalSize
+render :: Vty -> Layout -> AppState -> IO ()
+render vty layout state = do
+  let mainImage = imageForApp layout state
   update vty (picForImage mainImage)
 
 eventLoop :: Vty -> AppState -> IO ()
 eventLoop vty state = do
-  terminalSize <- displayBounds $ outputIface vty
-  _ <- render vty terminalSize state
+  layout <- createLayout vty
+  _ <- render vty layout state
   event <- nextEvent vty
-  nextState <- handleEvent terminalSize state event
+  nextState <- handleEvent layout state event
   resume nextState
   where
     resume (Just state') = eventLoop vty state'

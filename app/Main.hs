@@ -4,12 +4,14 @@ import AppState (emptyAppState)
 import EventHandler (eventLoop)
 import Graphics.Vty
 import SysInteraction (updateLists)
+import Layout (createLayout)
 
 main :: IO ()
 main = do
-  let currentDirectory = "/home/kodus/testi/old"
-  state <- updateLists (emptyAppState currentDirectory)
   vty <- mkVty defaultConfig
+  let currentDirectory = "/home/kodus/testi"
+  layout <- createLayout vty
+  state <- updateLists layout (emptyAppState currentDirectory)
   _ <- eventLoop vty state
   shutdown vty
 

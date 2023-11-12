@@ -29,7 +29,8 @@ executable filell
                       ListDrawing,
                       AppState,
                       EventHandler,
-                      InteractiveList
+                      InteractiveList,
+                      Layout
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

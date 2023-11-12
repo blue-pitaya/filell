@@ -1,6 +1,6 @@
 module AppState where
 
-import InteractiveList (InteractiveList (..), ListItem (..), ListItemType (..), emptyInteractiveList, getFocusedListItem)
+import InteractiveList (InteractiveList, ListItem (..), ListItemType (..), emptyInteractiveList, getFocusedListItem)
 import System.FilePath ((</>))
 
 type AbsolutePath = FilePath

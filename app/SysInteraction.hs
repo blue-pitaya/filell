@@ -1,8 +1,10 @@
 module SysInteraction where
 
 import AppState (AbsolutePath, AppState (..))
-import Data.List (sort)
-import InteractiveList (InteractiveList (..), ListItem (..), ListItemType (Dir, File), emptyInteractiveList, getFocusedListItem)
+import Data.List (findIndex, sort)
+import Data.Maybe (fromMaybe)
+import InteractiveList (InteractiveList (..), ListItem (..), ListItemType (Dir, File), emptyInteractiveList, getFocusedListItem, setFocusedIdx)
+import Layout (Layout, getListHeight)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.FilePath (takeDirectory, (</>))
 
@@ -24,18 +26,22 @@ getListOfPath path = do
 createInteractiveList :: AbsolutePath -> IO InteractiveList
 createInteractiveList path = getListOfPath path >>= (\l -> pure (emptyInteractiveList {getList = sort l}))
 
-updateLists :: AppState -> IO AppState
-updateLists state = updateCurrentList state >>= updateParentList >>= updateChildList
+updateLists :: Layout -> AppState -> IO AppState
+updateLists layout state = updateCurrentList state >>= updateParentList layout >>= updateChildList
 
 updateCurrentList :: AppState -> IO AppState
 updateCurrentList state = do
   list <- createInteractiveList (currentAbsolutePath state)
   return state {getCurrentList = list}
 
-updateParentList :: AppState -> IO AppState
-updateParentList state = do
-  list <- createInteractiveList (takeDirectory (currentAbsolutePath state))
-  return state {getParentList = list}
+updateParentList :: Layout -> AppState -> IO AppState
+updateParentList layout state = do
+  let parentDirPath = takeDirectory (currentAbsolutePath state)
+  list <- createInteractiveList parentDirPath
+  let items = getList list
+  let maybeFocusedIdx = findIndex (\item -> parentDirPath </> getName item == currentAbsolutePath state) items
+  let focusedIdx' = fromMaybe 0 maybeFocusedIdx
+  return state {getParentList = setFocusedIdx focusedIdx' (getListHeight layout) list}
 
 updateChildList :: AppState -> IO AppState
 updateChildList state = do
