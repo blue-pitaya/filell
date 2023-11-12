@@ -1,8 +1,9 @@
 module EventHandler (eventLoop) where
 
+import AppState (AppState (..), getChildPath)
 import Graphics.Vty (Event (EvKey), Key (KChar), Output (displayBounds), Vty (nextEvent, outputIface), picForImage, update)
+import InteractiveList (moveBy)
 import ListDrawing (imageForApp)
-import Models.AppState (AppState (..), getChildPath, moveBy)
 import SysInteraction (updateChildList, updateParentList)
 import System.FilePath (takeDirectory)
 

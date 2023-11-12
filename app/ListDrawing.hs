@@ -1,10 +1,12 @@
 module ListDrawing (imageForApp) where
 
-import Graphics.Vty (Attr, Image, defAttr, horizCat, resize, string, vertCat, vertJoin, withBackColor, withForeColor, withStyle)
 -- explicit import for attributes
+
+import AppState (AppState (currentAbsolutePath, getChildList, getCurrentList, getParentList))
+import Graphics.Vty (Attr, Image, defAttr, horizCat, resize, string, vertCat, vertJoin, withBackColor, withForeColor, withStyle)
 import qualified Graphics.Vty as Col
 import Graphics.Vty.Image (char)
-import Models.AppState (AppState (currentAbsolutePath, getChildList, getCurrentList, getParentList), InteracviteList (..), ListItem (ListItem, getName, getType), ListItemType (..))
+import InteractiveList (InteractiveList (..), ListItem (ListItem, getName, getType), ListItemType (..))
 
 type Size = (Int, Int)
 
@@ -22,7 +24,7 @@ attrForListItem True (ListItem {getType = Dir}) =
 imageForListItem :: IsFocused -> ListItem -> Image
 imageForListItem isFocused item = string (attrForListItem isFocused item) (getName item)
 
-imageForInteractiveList :: Size -> InteracviteList -> Image
+imageForInteractiveList :: Size -> InteractiveList -> Image
 imageForInteractiveList (width, height) interactiveList =
   resize width height listImage
   where

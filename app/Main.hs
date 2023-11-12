@@ -1,8 +1,8 @@
 module Main (main) where
 
+import AppState (emptyAppState)
 import EventHandler (eventLoop)
 import Graphics.Vty
-import Models.AppState (emptyAppState)
 import SysInteraction (updateLists)
 
 main :: IO ()
