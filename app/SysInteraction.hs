@@ -23,13 +23,17 @@ createInteractiveList :: AbsolutePath -> IO InteracviteList
 createInteractiveList path = getListOfPath path >>= (\l -> pure InteracviteList {getList = l, focusedIdx = 0})
 
 updateLists :: AppState -> IO AppState
-updateLists state = do
-  currentList <- createInteractiveList path
-  parentList <- createInteractiveList (takeDirectory path)
-  state' <- updateChildList state
-  return state' {getParentList = parentList, getCurrentList = currentList}
-  where
-    path = currentAbsolutePath state
+updateLists state = updateCurrentList state >>= updateParentList >>= updateChildList
+
+updateCurrentList :: AppState -> IO AppState
+updateCurrentList state = do
+  list <- createInteractiveList (currentAbsolutePath state)
+  return state {getCurrentList = list}
+
+updateParentList :: AppState -> IO AppState
+updateParentList state = do
+  list <- createInteractiveList (takeDirectory (currentAbsolutePath state))
+  return state {getParentList = list}
 
 updateChildList :: AppState -> IO AppState
 updateChildList state = do
