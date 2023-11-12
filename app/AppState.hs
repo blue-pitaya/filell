@@ -9,7 +9,8 @@ data AppState = AppState
   { currentAbsolutePath :: FilePath,
     getParentList :: InteractiveList,
     getCurrentList :: InteractiveList,
-    getChildList :: InteractiveList
+    getChildList :: InteractiveList,
+    areHiddenFilesVisible :: Bool
   }
 
 emptyAppState :: AbsolutePath -> AppState
@@ -18,7 +19,8 @@ emptyAppState path =
     { currentAbsolutePath = path,
       getParentList = emptyInteractiveList,
       getCurrentList = emptyInteractiveList,
-      getChildList = emptyInteractiveList
+      getChildList = emptyInteractiveList,
+      areHiddenFilesVisible = False
     }
 
 getChildPath :: AppState -> Maybe AbsolutePath

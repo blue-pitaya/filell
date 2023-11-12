@@ -1,11 +1,11 @@
 module EventHandler (eventLoop) where
 
 import AppState (AppState (..), getChildPath)
-import Graphics.Vty (Event (EvKey), Key (KChar), Vty (nextEvent), picForImage, update)
+import Graphics.Vty (Event (EvKey), Key (KChar, KBS), Vty (nextEvent), picForImage, update)
 import InteractiveList (moveBy)
 import Layout (Layout, createLayout, getListHeight)
 import ListDrawing (imageForApp)
-import SysInteraction (updateChildList, updateParentList)
+import SysInteraction (updateChildList, updateLists, updateParentList)
 import System.FilePath (takeDirectory)
 
 handleEvent :: Layout -> AppState -> Event -> IO (Maybe AppState)
@@ -47,6 +47,9 @@ handleEvent _ state (EvKey (KChar 'l') []) = fmap Just nextState
                 getCurrentList = getChildList state
               }
         Nothing -> pure state
+handleEvent layout state (EvKey KBS []) = do
+  state' <- updateLists layout (state {areHiddenFilesVisible = (not . areHiddenFilesVisible) state})
+  return $ Just state'
 handleEvent _ state _ = return (Just state)
 
 render :: Vty -> Layout -> AppState -> IO ()
