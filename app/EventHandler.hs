@@ -29,7 +29,7 @@ handleEvent state (EvKey (KChar 'h') []) = fmap Just nextState
               { currentAbsolutePath = parentPath,
                 getCurrentList = getParentList state
               }
-            >>= updateChildList --TODO: maybe updating child list wont be necesary if root highlight is ok
+            >>= updateChildList -- TODO: maybe updating child list wont be necesary if root highlight is ok
         else pure state
 handleEvent state (EvKey (KChar 'l') []) = fmap Just nextState
   where
@@ -48,8 +48,8 @@ handleEvent state _ = return (Just state)
 
 render :: Vty -> AppState -> IO ()
 render vty state = do
-  (width, _) <- displayBounds $ outputIface vty
-  let mainImage = imageForApp state width
+  size <- displayBounds $ outputIface vty
+  let mainImage = imageForApp state size
   update vty (picForImage mainImage)
 
 eventLoop :: Vty -> AppState -> IO ()
