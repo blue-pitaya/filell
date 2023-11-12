@@ -2,6 +2,7 @@ module Models.AppState where
 
 import Data.Ord (comparing)
 import Safe (atMay)
+import System.FilePath ((</>))
 
 type AbsolutePath = FilePath
 
@@ -34,6 +35,12 @@ emptyAppState path =
       getCurrentList = emptyInteractiveList,
       getChildList = emptyInteractiveList
     }
+
+getChildPath :: AppState -> Maybe AbsolutePath
+getChildPath state = do
+  item <- getCurrentListItem (getCurrentList state)
+  dirItem <- if getType item == Dir then Just item else Nothing
+  return (currentAbsolutePath state </> getName dirItem)
 
 data ListItemType = File | Dir deriving (Eq)
 

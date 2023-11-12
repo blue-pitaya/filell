@@ -2,7 +2,7 @@ module EventHandler (eventLoop) where
 
 import Graphics.Vty (Event (EvKey), Key (KChar), Output (displayBounds), Vty (nextEvent, outputIface), picForImage, update)
 import ListDrawing (imageForApp)
-import Models.AppState (AppState (..), moveBy)
+import Models.AppState (AppState (..), getChildPath, moveBy)
 import SysInteraction (updateChildList, updateParentList)
 import System.FilePath (takeDirectory)
 
@@ -26,11 +26,24 @@ handleEvent state (EvKey (KChar 'h') []) = fmap Just nextState
         then
           updateParentList
             state
-              { currentAbsolutePath = takeDirectory (currentAbsolutePath state),
-                getCurrentList = getParentList state,
-                getChildList = getCurrentList state
+              { currentAbsolutePath = parentPath,
+                getCurrentList = getParentList state
               }
+            >>= updateChildList --TODO: maybe updating child list wont be necesary if root highlight is ok
         else pure state
+handleEvent state (EvKey (KChar 'l') []) = fmap Just nextState
+  where
+    childPath = getChildPath state
+    nextState =
+      case childPath of
+        Just path ->
+          updateChildList
+            state
+              { currentAbsolutePath = path,
+                getParentList = getCurrentList state,
+                getCurrentList = getChildList state
+              }
+        Nothing -> pure state
 handleEvent state _ = return (Just state)
 
 render :: Vty -> AppState -> IO ()
