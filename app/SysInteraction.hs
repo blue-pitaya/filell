@@ -3,6 +3,7 @@ module SysInteraction where
 import Models.AppState (AbsolutePath, AppState (..), InteracviteList (InteracviteList, focusedIdx, getList), ListItem (ListItem, getName, getType), ListItemType (Dir, File), emptyInteractiveList, getCurrentListItem)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.FilePath (takeDirectory, (</>))
+import Data.List (sort)
 
 itemFromPath :: AbsolutePath -> FilePath -> IO ListItem
 itemFromPath rootPath path = do
@@ -20,7 +21,7 @@ getListOfPath path = do
   mapM (itemFromPath path) contents
 
 createInteractiveList :: AbsolutePath -> IO InteracviteList
-createInteractiveList path = getListOfPath path >>= (\l -> pure InteracviteList {getList = l, focusedIdx = 0})
+createInteractiveList path = getListOfPath path >>= (\l -> pure InteracviteList {getList = sort l, focusedIdx = 0})
 
 updateLists :: AppState -> IO AppState
 updateLists state = updateCurrentList state >>= updateParentList >>= updateChildList

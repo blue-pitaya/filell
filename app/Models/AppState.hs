@@ -1,5 +1,6 @@
 module Models.AppState where
 
+import Data.Ord (comparing)
 import Safe (atMay)
 
 type AbsolutePath = FilePath
@@ -17,7 +18,6 @@ moveBy :: Int -> InteracviteList -> InteracviteList
 moveBy n list = list {focusedIdx = focusedIdx'}
   where
     focusedIdx' = min (max (focusedIdx list + n) 0) (length (getList list) - 1)
-
 
 data AppState = AppState
   { currentAbsolutePath :: FilePath,
@@ -37,10 +37,19 @@ emptyAppState path =
 
 data ListItemType = File | Dir deriving (Eq)
 
+instance Ord ListItemType where
+  compare Dir File = LT
+  compare File Dir = GT
+  compare _ _ = EQ
+
 data ListItem = ListItem
   { getName :: String,
     getType :: ListItemType
   }
+  deriving (Eq)
+
+instance Ord ListItem where
+  compare = comparing (\x -> (getType x, getName x))
 
 instance Show ListItem where
   show item = unwords [typePart, getName item]
