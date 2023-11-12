@@ -19,7 +19,6 @@ getListOfPath path = do
   contents <- listDirectory path
   mapM (itemFromPath path) contents
 
--- takeDirectory
 createInteractiveList :: AbsolutePath -> IO InteracviteList
 createInteractiveList path = getListOfPath path >>= (\l -> pure InteracviteList {getList = l, focusedIdx = 0})
 
@@ -27,9 +26,18 @@ updateLists :: AppState -> IO AppState
 updateLists state = do
   currentList <- createInteractiveList path
   parentList <- createInteractiveList (takeDirectory path)
-  childList <- getListForMaybe (getCurrentListItem (getCurrentList state))
-  return state {getParentList = parentList, getCurrentList = currentList, getChildList = childList}
+  state' <- updateChildList state
+  return state' {getParentList = parentList, getCurrentList = currentList}
   where
     path = currentAbsolutePath state
-    getListForMaybe (Just listItem) = createInteractiveList (path </> getName listItem)
+
+updateChildList :: AppState -> IO AppState
+updateChildList state = do
+  list' <- getListForMaybe dirItem
+  return (state {getChildList = list'})
+  where
+    dirItem = case getCurrentListItem (getCurrentList state) of
+      Just x | getType x == Dir -> Just x
+      _ -> Nothing
+    getListForMaybe (Just listItem) = createInteractiveList (currentAbsolutePath state </> getName listItem)
     getListForMaybe Nothing = pure emptyInteractiveList
