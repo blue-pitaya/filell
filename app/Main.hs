@@ -7,6 +7,7 @@
 
 module Main (main) where
 
+import EventHandler (eventLoop)
 import Graphics.Vty
 import ListDrawing (imageForApp)
 import Models.AppState (emptyAppState)
@@ -231,17 +232,7 @@ import System.Directory (getCurrentDirectory)
 main :: IO ()
 main = do
   let currentDirectory = "/home/kodus/testi/old"
-  state <- updateLists (emptyAppState currentDirectory) currentDirectory
+  state <- updateLists (emptyAppState currentDirectory)
   vty <- mkVty defaultConfig
-  -- Get the size of the terminal
-  (width, _) <- displayBounds $ outputIface vty
-  let mainImage = imageForApp state width
-  -- Display the centered image
-  update vty (picForImage mainImage)
-  -- Wait for the "q" key to exit
-  event <- nextEvent vty
-  case event of
-    EvKey (KChar 'q') [] -> return ()
-    _ -> main
-  -- Shutdown the Vty interface
+  _ <- eventLoop vty state
   shutdown vty
