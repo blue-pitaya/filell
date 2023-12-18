@@ -37,7 +37,7 @@ executable filell
     build-depends:    base ^>=4.17.2.0, 
                       directory,
                       filepath,
-                      vty,
+                      vty == 5.39,
                       process,
                       safe
     hs-source-dirs:   app
